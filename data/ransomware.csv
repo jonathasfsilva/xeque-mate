@@ -4,3 +4,7 @@ RSW002,Ryuk,Ransomware
 RSW003,WannaCry,Crypto-Worm
 RSW004,DarkSide,Ransomware-as-a-Service
 RSW005,LockBit,Ransomware-as-a-Service
+RSW006,BlackCat,Ransomware-as-a-Service
+RSW007,Cl0p,Ransomware-as-a-Service
+RSW008,Hive,Ransomware-as-a-Service
+RSW009,BlackByte,Ransomware-as-a-Service
