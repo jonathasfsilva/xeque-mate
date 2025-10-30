@@ -10,6 +10,7 @@ from langchain.agents.output_parsers.openai_tools import OpenAIToolsAgentOutputP
 
 # 1. Importar a nova CADEIA DE CYPHER de CTI
 from src.chains.cypher_chain import cypher_chain
+from src.chains.review_chain import cti_reports_vector_chain
 
 # (NOTA: As outras cadeias e ferramentas foram removidas, 
 # pois não temos os dados de "relatórios" ou "APIs externas" 
@@ -23,7 +24,7 @@ agent_chat_model = ChatOpenAI(
     temperature=0,
 )
 
-# 3. Definir a ÚNICA ferramenta que temos (consulta ao grafo)
+# 3. Definir as ferramentas
 @tool
 def consultar_grafo_cti(pergunta: str) -> str:
     """
@@ -37,6 +38,16 @@ def consultar_grafo_cti(pergunta: str) -> str:
     """
     # Aponta para a cadeia Text-to-Cypher que você criou
     return cypher_chain.invoke(pergunta)
+
+@tool
+def buscar_relatorios_de_inteligencia(pergunta: str) -> str:
+    """
+    Útil quando você precisar responder perguntas qualitativas sobre
+    o 'modus operandi' (TTPs), comportamento, motivações ou
+    análises detalhadas de um ator de ameaça ou ransomware
+    (ex: 'Como o Wizard Spider opera?', 'Quais são os TTPs do Cl0p?').
+    """
+    return cti_reports_vector_chain.invoke(pergunta)
 
 
 # 4. Atualizar a lista de ferramentas

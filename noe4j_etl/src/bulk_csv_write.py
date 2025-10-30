@@ -11,6 +11,7 @@ WALLET_CSV_PATH = os.getenv("WALLET_CSV_PATH")
 ACTOR_OPERATES_CSV_PATH = os.getenv("ACTOR_OPERATES_CSV_PATH")
 RANSOMWARE_TARGETED_CSV_PATH = os.getenv("RANSOMWARE_TARGETED_CSV_PATH")
 RANSOMWARE_DEMANDS_CSV_PATH = os.getenv("RANSOMWARE_DEMANDS_CSV_PATH")
+REPORTS_CSV_PATH = os.getenv("REPORTS_CSV_PATH", "file:///Reports.csv")
 
 # Neo4j config
 NEO4J_URI = os.getenv("NEO4J_URI")
@@ -28,7 +29,7 @@ logging.basicConfig(
 
 LOGGER = logging.getLogger(__name__)
 
-NODES = ["Ransomware", "ThreatActor", "Visit", "Wallet"]
+NODES = ["Ransomware", "ThreatActor", "Visit", "Wallet", "Report"]
 
 
 def _set_uniqueness_constraints(tx, node):
@@ -107,6 +108,19 @@ def load_cti_graph_from_csv() -> None:
                                currency: row.currency,
                                ransom_amount_usd: toFloat(row.ransom_amount_usd)
                                }});
+        """
+        _ = session.run(query, {})
+
+    LOGGER.info("Loading Report nodes")
+    with driver.session(database=NEO4J_DATABASE) as session:
+        query = f"""
+        LOAD CSV WITH HEADERS
+        FROM '{REPORTS_CSV_PATH}' AS row
+        MERGE (r:Report {{id: row.id,
+                            title: row.title,
+                            text: row.text,
+                            source: row.source
+                            }});
         """
         _ = session.run(query, {})
 
