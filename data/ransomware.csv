@@ -1,0 +1,6 @@
+id,name,family
+RSW001,Conti,Ransomware-as-a-Service
+RSW002,Ryuk,Ransomware
+RSW003,WannaCry,Crypto-Worm
+RSW004,DarkSide,Ransomware-as-a-Service
+RSW005,LockBit,Ransomware-as-a-Service

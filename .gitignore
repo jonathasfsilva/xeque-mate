@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# Environments
+env/
+.venv/
+venv/
+ENV/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# dotenv
+.env
+*.env
+
+# Weaviate
+*.pkl
+
+# Logs
+*.log
+
+# Misc
+*.bak
+*.swp
+*.tmp
