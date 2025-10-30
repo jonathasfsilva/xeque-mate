@@ -11,7 +11,9 @@ WALLET_CSV_PATH = os.getenv("WALLET_CSV_PATH")
 ACTOR_OPERATES_CSV_PATH = os.getenv("ACTOR_OPERATES_CSV_PATH")
 RANSOMWARE_TARGETED_CSV_PATH = os.getenv("RANSOMWARE_TARGETED_CSV_PATH")
 RANSOMWARE_DEMANDS_CSV_PATH = os.getenv("RANSOMWARE_DEMANDS_CSV_PATH")
-REPORTS_CSV_PATH = os.getenv("REPORTS_CSV_PATH", "file:///Reports.csv")
+REPORTS_CSV_PATH = os.getenv("REPORTS_CSV_PATH")
+REPORT_MENTIONS_ACTOR_CSV_PATH = os.getenv("REPORT_MENTIONS_ACTOR_CSV_PATH")
+REPORT_MENTIONS_RANSOMWARE_CSV_PATH = os.getenv("REPORT_MENTIONS_RANSOMWARE_CSV_PATH")
 
 # Neo4j config
 NEO4J_URI = os.getenv("NEO4J_URI")
@@ -153,6 +155,26 @@ def load_cti_graph_from_csv() -> None:
         MATCH (source:Ransomware {{id: trim(row.FROM_ID)}})
         MATCH (target:Wallet {{id: trim(row.TO_ID)}})
         MERGE (source)-[r:DEMANDS_PAYMENT_TO]->(target)
+        """
+        _ = session.run(query, {})
+    
+    LOGGER.info("Loading 'MENTIONS' relationships (Report to ThreatActor)")
+    with driver.session(database=NEO4J_DATABASE) as session:
+        query = f"""
+        LOAD CSV WITH HEADERS FROM '{REPORT_MENTIONS_ACTOR_CSV_PATH}' AS row
+        MATCH (source:Report {{id: trim(row.FROM_ID)}})
+        MATCH (target:ThreatActor {{id: trim(row.TO_ID)}})
+        MERGE (source)-[r:MENTIONS]->(target)
+        """
+        _ = session.run(query, {})
+
+    LOGGER.info("Loading 'MENTIONS' relationships (Report to Ransomware)")
+    with driver.session(database=NEO4J_DATABASE) as session:
+        query = f"""
+        LOAD CSV WITH HEADERS FROM '{REPORT_MENTIONS_RANSOMWARE_CSV_PATH}' AS row
+        MATCH (source:Report {{id: trim(row.FROM_ID)}})
+        MATCH (target:Ransomware {{id: trim(row.TO_ID)}})
+        MERGE (source)-[r:MENTIONS]->(target)
         """
         _ = session.run(query, {})
 
