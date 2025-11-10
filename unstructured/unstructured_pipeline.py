@@ -1,15 +1,16 @@
 # unstructured_pipeline.py
 # -*- coding: utf-8 -*-
 """
-Pipeline Unstructured: segmentação, classificação, metadados, normalização/limpeza.
-Compatível com: PDF, DOC/DOCX, HTML/HTM, EML/MSG, TXT/MD, etc.
-Saída: JSONL com chunks normalizados e metadados prontos para embeddings/RAG.
+Pipeline Unstructured: Segmentação, Classificação, Metadados, Normalização/Limpeza
+Compatível com: PDF, DOC/DOCX, PPT/PPTX, HTML/HTM, EML/MSG, TXT/MD, RTF
+Saída: JSONL com chunks normalizados e metadados (pronto para embeddings/RAG).
 
-Exemplo:
-    python unstructured_pipeline.py --input ./data/raw --output ./data/out.jsonl
+Dependências mínimas (exemplos):
+    pip install "unstructured[all-docs]>=0.12.0" tiktoken>=0.7.0 ftfy>=6.2.0 ujson>=5.10.0
+Execução:
+    python unstructured_pipeline.py
 """
 
-import argparse
 import os
 import re
 import uuid
@@ -18,6 +19,21 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 import ujson as json
 
+SCRIPT_DIR = Path(__file__).resolve()
+PROJECT_ROOT = SCRIPT_DIR.parent  # sobe 1 nível (ajuste se precisar)
+print(f"PROJECT_ROOT: {PROJECT_ROOT}")
+
+# =========================
+# CONFIG: edite aqui
+# =========================
+INPUT_PATH  = PROJECT_ROOT / "Relatorio_Incidente_Ransomware_ACME_IR-2025-041.txt"
+OUTPUT_PATH = PROJECT_ROOT / "data" / "unstruct-output" / "out.jsonl"
+MAX_TOKENS  = 400   # tamanho máximo do chunk (tokens)
+OVERLAP     = 40    # overlap em tokens entre chunks
+PREVIEW     = True  # imprime amostra do primeiro elemento de cada doc
+# =========================
+
+# --- Unstructured (segmentação) ---
 try:
     from unstructured.partition.auto import partition
 except Exception as e:
@@ -26,12 +42,14 @@ except Exception as e:
         '  pip install "unstructured[all-docs]"'
     ) from e
 
-# Tokenização para chunk
+# --- Tokenização (para chunk) ---
 try:
     import tiktoken
     _ENC = tiktoken.get_encoding("cl100k_base")
+
     def count_tokens(text: str) -> int:
         return len(_ENC.encode(text))
+
     def split_by_tokens(text: str, max_tokens: int, overlap: int) -> List[str]:
         toks = _ENC.encode(text)
         if len(toks) <= max_tokens:
@@ -48,10 +66,12 @@ try:
             if start < 0:
                 start = 0
         return chunks
+
 except Exception:
-    # Fallback simples por caracteres
+    # Fallback por caracteres (heurístico, caso tiktoken não esteja disponível)
     def count_tokens(text: str) -> int:
-        return max(1, len(text) // 4)  # heurística grosseira
+        return max(1, len(text) // 4)
+
     def split_by_tokens(text: str, max_tokens: int, overlap: int) -> List[str]:
         max_chars = max_tokens * 4
         if len(text) <= max_chars:
@@ -68,31 +88,27 @@ except Exception:
         return chunks
 
 
-# --- Normalização / limpeza ---------------------------------------------------
-
-_ZERO_WIDTH = "[\u200B-\u200F\uFEFF]"
+# --- Normalização / limpeza ---
+_ZERO_WIDTH = r"[\u200B-\u200F\uFEFF]"
 _CTRL = r"[\x00-\x08\x0B-\x0C\x0E-\x1F]"
 
 def normalize_text(text: str) -> str:
     """Normaliza e limpa o texto mantendo parágrafos."""
     if not text:
         return ""
-    # Normaliza quebras e BOM/zero-width
     t = text.replace("\r\n", "\n").replace("\r", "\n")
     t = re.sub(_ZERO_WIDTH, "", t)
     t = re.sub(_CTRL, " ", t)
-
-    # Des-hifenização comum: quebra de linha com hífen
+    # Des-hifenização comum (palavra-\ncontinuação)
     t = re.sub(r"(\w)-\n(\w)", r"\1\2", t)
-    # Colapsa espaços
+    # Colapsa espaços supérfluos
     t = re.sub(r"[ \t\f\v]+", " ", t)
-    # Mantém no máx 2 quebras seguidas (delimita parágrafos)
+    # Limita quebras múltiplas
     t = re.sub(r"\n{3,}", "\n\n", t)
     return t.strip()
 
 
-# --- Classificação ------------------------------------------------------------
-
+# --- Classificação ---
 CATEGORY_MAP = {
     "Title": "title",
     "NarrativeText": "paragraph",
@@ -114,12 +130,10 @@ def classify_category(cat: Optional[str]) -> str:
     return CATEGORY_MAP.get(cat, cat.lower())
 
 
-# --- Segmentação (via unstructured + re-chunk) --------------------------------
-
+# --- Segmentação (unstructured) ---
 def segment_file(path: Path) -> Tuple[List, Dict]:
     """Usa o unstructured para obter elementos e metadados do documento."""
     elements = partition(filename=str(path))  # auto-detecta tipo
-    # Metadado geral do doc (nem sempre está preenchido; mantemos filename/ext)
     doc_meta = {
         "doc_id": path.stem,
         "filename": path.name,
@@ -131,7 +145,6 @@ def segment_file(path: Path) -> Tuple[List, Dict]:
 
 def element_text(el) -> str:
     """Extrai texto do elemento, caindo para str(el) se necessário."""
-    # Em versões recentes: el.text; algumas têm .to_dict()["text"]
     txt = getattr(el, "text", None)
     if not txt:
         try:
@@ -144,22 +157,25 @@ def element_text(el) -> str:
 
 def element_metadata(el) -> Dict:
     """Extrai metadados estruturados do elemento."""
-    md = {}
+    md: Dict = {}
     try:
         md_obj = getattr(el, "metadata", None)
         if md_obj and hasattr(md_obj, "to_dict"):
             md = md_obj.to_dict()
+        else:
+            # fallback: algumas versões retornam tudo em .to_dict()
+            d = el.to_dict()
+            md = d.get("metadata", {}) if isinstance(d, dict) else {}
     except Exception:
         pass
-    # Filtragem leve de campos grandes/voláteis
+    # remove campos muito pesados/voláteis
     for k in ("coordinates", "languages", "data_source"):
-        if k in md and md[k] is None:
+        if k in md and (md[k] is None or md[k] == {}):
             md.pop(k, None)
     return md
 
 
-# --- Transformação em chunks ---------------------------------------------------
-
+# --- Transformação em chunks ---
 def elements_to_chunks(
     elements: List,
     doc_meta: Dict,
@@ -184,10 +200,10 @@ def elements_to_chunks(
             yield {
                 "id": f"{doc_meta['filename']}::{idx:05d}:{part_idx:03d}:{uuid.uuid4().hex[:6]}",
                 "doc_id": doc_meta["doc_id"],
-                "source_path": os.path.join(doc_meta["parent"], doc_meta["filename"]),
-                "type": cat,                     # Classificação do conteúdo
+                # "source_path": os.path.join(doc_meta["parent"], doc_meta["filename"]),
+                "type": cat,                     # Classificação (título, parágrafo, tabela, etc.)
                 "text": part,                    # Texto normalizado/limpo
-                "n_tokens": count_tokens(part),  # aprox. para tuning de chunk
+                "n_tokens": count_tokens(part),  # contagem aprox. p/ tuning
                 "metadata": {
                     **emd,
                     **doc_meta,
@@ -197,8 +213,7 @@ def elements_to_chunks(
             }
 
 
-# --- Coleta de arquivos -------------------------------------------------------
-
+# --- Coleta de arquivos (arquivo único OU pasta) ---
 VALID_SUFFIXES = {
     ".pdf", ".doc", ".docx", ".ppt", ".pptx",
     ".html", ".htm", ".xml",
@@ -206,43 +221,57 @@ VALID_SUFFIXES = {
     ".txt", ".md", ".rtf",
 }
 
-def iter_files(root: Path) -> Iterable[Path]:
+def iter_paths(root: Path):
+    """Aceita uma pasta OU um arquivo único."""
+    if root.is_file():
+        if root.suffix.lower() in VALID_SUFFIXES:
+            yield root
+        else:
+            print(f"[AVISO] Ignorando arquivo com extensão não suportada: {root.suffix} ({root})")
+        return
     for p in root.rglob("*"):
         if p.is_file() and p.suffix.lower() in VALID_SUFFIXES:
             yield p
 
 
-# --- CLI ----------------------------------------------------------------------
-
-def run_pipeline(input_dir: Path, output_path: Path, max_tokens: int, overlap: int) -> None:
+# --- Execução do pipeline ---
+def run_pipeline(input_path: Path, output_path: Path, max_tokens: int, overlap: int) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     total_docs = 0
     total_chunks = 0
 
     with output_path.open("w", encoding="utf-8") as out:
-        for file_path in iter_files(input_dir):
+        for file_path in iter_paths(input_path):
             total_docs += 1
             try:
                 elements, doc_meta = segment_file(file_path)
             except Exception as e:
-                print(f"[ERRO] {file_path}: {e}")
+                # print(f"[ERRO] {file_path}: {e}")
                 continue
 
+            if PREVIEW and elements:
+                # Mostra categoria + início do primeiro elemento
+                first_txt = (element_text(elements[0]) or "")[:120].replace("\n", " ")
+                first_cat = getattr(elements[0], "category", "?")
+                # print(f"[INFO] {file_path.name}: {len(elements)} elementos | 1º={first_cat} :: {first_txt!r}")
+
+            doc_chunks = 0
             for chunk in elements_to_chunks(elements, doc_meta, max_tokens, overlap):
                 out.write(json.dumps(chunk, ensure_ascii=False) + "\n")
                 total_chunks += 1
+                doc_chunks += 1
 
-    print(f"OK: {total_docs} documentos processados → {total_chunks} chunks em {output_path}")
+            if doc_chunks == 0:
+                print(f"[AVISO] 0 chunks gerados para (verifique conteúdo/encoding).")
 
-def main():
-    ap = argparse.ArgumentParser(description="Pipeline Unstructured (seg/class/meta/normalize).")
-    ap.add_argument("--input", type=Path, required=True, help="Pasta com documentos de entrada.")
-    ap.add_argument("--output", type=Path, required=True, help="Arquivo .jsonl de saída.")
-    ap.add_argument("--max-tokens", type=int, default=400, help="Tamanho máximo do chunk.")
-    ap.add_argument("--overlap", type=int, default=40, help="Overlap em tokens entre chunks.")
-    args = ap.parse_args()
+    if total_docs == 0:
+        print(f"[ATENÇÃO] Nenhum arquivo encontrado. "
+              f"Use uma PASTA ou aponte direto para o arquivo suportado.")
 
-    run_pipeline(args.input, args.output, args.max_tokens, args.overlap)
+    print(f"OK: {total_docs} documento(s) processado(s) → {total_chunks} chunk(s) em {output_path}")
+
 
 if __name__ == "__main__":
-    main()
+    in_path = Path(INPUT_PATH)
+    out_path = Path(OUTPUT_PATH)
+    run_pipeline(in_path, out_path, MAX_TOKENS, OVERLAP)
