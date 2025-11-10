@@ -1,5 +1,5 @@
 # ==== Core Unstructured (PDF, imagens, DOCX, EML, etc.) ====
-unstructured[all-docs]==0.18.16
+# unstructured[all-docs]==0.18.16
 unstructured-inference>=0.7,<0.8
 pytesseract>=0.3.10
 pdf2image>=1.16.3
