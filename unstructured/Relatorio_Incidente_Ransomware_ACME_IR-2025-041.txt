@@ -1,0 +1,189 @@
+# Relatório de Incidente – Ataque de Ransomware na Rede
+
+**TLP:** AMBER  
+**Organização:** ACME Tech S.A.  
+**Número do Incidente:** IR-2025-041  
+**Data do Relatório:** 2025-11-10 21:30 UTC  
+**Preparado por:** Equipe CTI / SOC  
+**Versão:** 1.0
+
+---
+
+## 1) Sumário Executivo
+Em 2025-11-09 23:58 UTC, a organização identificou atividade compatível com **ransomware** em parte do ambiente corporativo. O ator realizou movimento lateral, escalonou privilégios e **criptografou dados** em **21 ativos**, com impacto em servidores de arquivos e estações de trabalho do setor financeiro. Há indícios limitados de exfiltração (compressão de diretórios sensíveis sem confirmação de envio).
+
+**Status atual:** *Contido* (hosts isolados; IoCs bloqueados em EDR/Firewall/DNS).  
+**Severidade:** Alta.  
+**Família/Estirpe:** possível **LockBit 3.0** (a confirmar por amostra).  
+**Janela do incidente:** 2025-11-09 22:41 → 2025-11-10 03:12 (contenção).
+
+---
+
+## 2) Escopo e Ambiente
+- **AD / Windows** predominante (Controladores de Domínio: DC-01, DC-02).  
+- **Serviços críticos:** ERP, servidor de arquivos (FS-01/02), e-mail (EX-01), VPN (GW-VPN01).  
+- **EDR/AV:** SentinelOne.  
+- **SIEM:** Splunk.  
+- **Backup/DR:** Veeam com retenção de 30 dias e cofres S3 imutáveis.
+
+---
+
+## 3) Linha do Tempo (Resumo)
+| Data/Hora (UTC) | Evento | Fonte | Observações |
+|---|---|---|---|
+| 2025-11-09 22:41 | E-mail de phishing entregue a 3 usuários | Gateway de E-mail | Anexo ZIP com JS ofuscado |
+| 2025-11-09 22:46 | Execução de script malicioso | EDR | `wscript.exe` invoca `powershell.exe` com payload |
+| 2025-11-09 22:57 | Tentativa de desabilitar AV/EDR | Sysmon/EDR | `sc stop sensSvc` e `net stop WinDefend` |
+| 2025-11-09 23:05 | Credenciais privilegiadas obtidas | DC-01 / 4624 | Logon 4624 tipo 3 no DC-01 a partir de WS-034 |
+| 2025-11-09 23:18 | Movimento lateral via SMB/RDP | NetFlow/EDR | WS-034 → FS-01, FS-02, EX-01 |
+| 2025-11-09 23:26 | Shadow copies removidas | Sysmon | `vssadmin delete shadows /all /quiet` |
+| 2025-11-09 23:33 | Início de criptografia em massa | FS-01 | Extensões `.acme_locked` surgem |
+| 2025-11-09 23:35 | Notas de resgate gravadas | FS-01/02 | `RESTORE_FILES.txt` |
+| 2025-11-10 00:12 | Pico de tráfego HTTPS para ASN fora do perfil | Firewall | Sinais de *beaconing* |
+| 2025-11-10 02:40 | IOC blocks aplicados (EDR/DNS/Firewall) | SOC | Contenção progressiva |
+| 2025-11-10 03:12 | Segmentação/isolar hosts | SOC | 21 hosts isolados, 6 servidores críticos preservados |
+
+> **Observação:** todos os horários são fictícios e servem de exemplo para preenchimento.
+
+---
+
+## 4) Vetor de Ataque Hipotético
+- **Inicial:** Phishing com anexo malicioso (T1566.001) / exploração de serviço exposto (T1190).  
+- **Execução:** PowerShell/Command Prompt (T1059).  
+- **Persistência:** Tarefa agendada e Run Keys (T1053 / T1060).  
+- **Elevação:** Exploração local (T1068).  
+- **Evasão:** Desativação de defesas e *shadow copies* (T1562 / T1490).  
+- **Credenciais:** LSASS dump (T1003).  
+- **Movimento Lateral:** SMB/RDP (T1021).  
+- **Impacto:** Criptografia (T1486) e parada de serviços (T1489).
+
+---
+
+## 5) Indicadores de Comprometimento (IoCs)
+**Arquivos / Assinaturas**
+- Hashes amostrais (executáveis observados):  
+  - SHA256: `b1d9f8a1b3f4e2a4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718`  
+  - SHA256: `2a4e5b7c9d1f0a3b5c7d9e1f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8012`  
+  - MD5: `9f86d081884c7d659a2feaa0c55ad015`
+
+**Domínios/URLs/IPs**
+- C2/infra suspeita:  
+  - `sync-docs-secure[.]com`  
+  - `cdn-updates-storage[.]net`  
+  - `185.231.114.77`  
+  - `91.203.145.12`
+
+**Carteira (ransom note)**
+- `bc1q9f3k7t0x5c9u2a6w4e8p3l7y5m9n0t3z6h1d2k` *(exemplo fictício)*
+
+**Processos / Comandos**
+- `vssadmin delete shadows /all /quiet`  
+- `wmic shadowcopy delete`  
+- `cipher /w:C:\`  
+- `sc stop WinDefend` / `net stop <serviço>`  
+- `powershell -nop -w hidden -e <base64>`
+
+**Artefatos em Disco**
+- Extensão: `.acme_locked`  
+- Pasta de staging: `C:\Users\%USER%\AppData\Local\Temp\acme\stage`  
+- Nota de resgate: `RESTORE_FILES.txt`
+
+---
+
+## 6) Evidências-Chave e Análises
+### 6.1 Host Forensics (Windows)
+- **Eventos recomendados:** 4688, 4624/4625, 4672, 7045, Sysmon (1, 3, 7, 11, 13, 22), EDR.  
+- **Observações:** cadeia `wscript.exe` → `powershell.exe` → `rundll32.exe`; escrita massiva + renomeações; task agendada `\Microsoft\Windows\Acme\Updater`.
+
+### 6.2 Network Forensics
+- **Picos de SMB/RDP** entre WS-034 e FS-01/FS-02.  
+- DNS para domínios recém-registrados; *beaconing* periódico de 60s.  
+- HTTPS para ASNs `AS208722` e `AS210256` (exemplo).
+
+---
+
+## 7) Impacto
+- **Disponibilidade:** Servidor de arquivos FS-01 indisponível por 6h; 18 estações impactadas.  
+- **Integridade:** Arquivos críticos de financeiro criptografados.  
+- **Confidencialidade:** Possível exfiltração de pastas `\FS-01\FIN\Contratos`.  
+- **Negócio:** Atraso em faturamento e conciliações (SLA D+1 afetado).  
+- **Financeiro:** Estimado R$ 420.000 (tempo parado + horas IR + restauração).
+
+---
+
+## 8) Resposta Executada
+**Detecção**  
+- Alertas EDR de execução suspeita e padrão de criptografia; correlação no SIEM por *spikes* de renomeações.
+
+**Contenção**  
+- Isolamento de hosts, bloqueios de IoCs, revogação de tokens e sessões RDP ativas, MFA reforçado.
+
+**Erradicação**  
+- Remoção de binários e tarefas, atualização de assinaturas, *sweep* em toda a OU de Financeiro e servidores.
+
+**Recuperação**  
+- Restauração de backups verificados (WORM), validação por *hash* e disponibilidade gradual; *hunt* por 14 dias.
+
+---
+
+## 9) Recomendações
+**Imediato (0–7 dias)**  
+- Reset de contas privilegiadas; MFA obrigatório para admins e VPN.  
+- GPO para bloquear `vssadmin`, `wmic`, `psexec`, `rundll32` onde aplicável (AppLocker/WDAC).  
+- Fechar RDP exposto; política de bloqueio por geolocalização.  
+- Regras EDR focadas em `shadow copies` e escrita massiva.
+
+**Curto Prazo (8–30 dias)**  
+- Segmentação de rede (tiering AD), jump servers; revisão de ACLs SMB.  
+- Backups imutáveis testados mensalmente.  
+- Casos de uso SIEM específicos para ransomware (T1486/T1490).  
+- Campanha de *phishing awareness*.
+
+**Médio Prazo (31–90 dias)**  
+- PAM (JIT), remoção de contas órfãs, RBAC rígido.  
+- Endurecimento de DCs, SMB signing, desativar NTLM (quando viável).
+
+---
+
+## 10) Lições Aprendidas
+- Melhorar *detection engineering* para cadeia `wscript → powershell → rundll32`.  
+- Acelerar *isolation playbook* via EDR (um clique).  
+- Ampliar telemetria DNS e TLS SNI.  
+- Exercícios de tabletop trimestrais.
+
+---
+
+## 11) Anexos
+**A. Tabela detalhada de IoCs**  
+| Tipo | Valor | Primeiro Visto | Último Visto | Confiança | Fonte |
+|---|---|---:|---:|---|---|
+| SHA256 | b1d9f8a1b3f4e2a4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f60718 | 2025-11-09 22:46 | 2025-11-10 00:55 | Alta | EDR |
+| SHA256 | 2a4e5b7c9d1f0a3b5c7d9e1f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8012 | 2025-11-09 22:57 | 2025-11-10 01:12 | Média | EDR |
+| MD5 | 9f86d081884c7d659a2feaa0c55ad015 | 2025-11-09 23:05 | 2025-11-10 00:31 | Baixa | AV |
+| IP | 185.231.114.77 | 2025-11-10 00:10 | 2025-11-10 02:05 | Média | Firewall |
+| IP | 91.203.145.12 | 2025-11-10 00:12 | 2025-11-10 02:03 | Baixa | NetFlow |
+| Domínio | sync-docs-secure[.]com | 2025-11-09 22:48 | 2025-11-10 01:44 | Média | DNS |
+| Domínio | cdn-updates-storage[.]net | 2025-11-09 22:49 | 2025-11-10 01:46 | Média | DNS |
+| Carteira | bc1q9f3k7t0x5c9u2a6w4e8p3l7y5m9n0t3z6h1d2k | 2025-11-09 23:35 | 2025-11-10 03:00 | Baixa | Nota de Resgate |
+
+**B. Hosts Afetados**  
+| Host | Função | Status | Observações |
+|---|---|---|---|
+| FS-01 | File Server | Restaurado | Volume D: criptografado; restore concluído |
+| FS-02 | File Server | Em restauração | 18% concluído às 03:10 |
+| WS-034 | Workstation | Reimagem | Origem da intrusão (phishing) |
+| EX-01 | Exchange | Preservado | Tentativa de movimento lateral |
+| DC-01 | Domain Controller | Preservado | Acesso privilegiado observado |
+
+**C. Evidências**  
+- Export SIEM (JSON), timeline forense, captura da nota de resgate, amostras de binários (hashes).  
+- Export de eventos Windows (4624/4625/4688/7045) e Sysmon (1/3/7/11/13/22).
+
+**D. Mapeamento MITRE ATT&CK (resumo)**  
+- T1566, T1190, T1059, T1053, T1068, T1562, T1003, T1021, T1486, T1490, T1489.
+
+---
+
+### Observações Finais
+Documento fictício para fins de demonstração no Projeto **Xeque-Mate** (Agregador/Agente). Substitua dados conforme a evidência real e anexe os exports gerados pela sua pipeline (unstructured → embeddings → Neo4j) para rastreabilidade.
+

@@ -23,7 +23,7 @@ PROJECT_ROOT = SCRIPT_DIR.parent  # sobe 1 nível (ajuste se precisar)
 
 print(f"PROJECT_ROOT: {PROJECT_ROOT}")
 
-FILE: str = PROJECT_ROOT / "data" / "Ransomware_clean.csv"  # csv
+FILE: str = PROJECT_ROOT / "data" / "Relatorio_Incidente_Ransomware_ACME_IR-2025-041.txt"  # md
 OUTPUT_DIR: str = PROJECT_ROOT / "data" / "unstruct-output"
 # OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # FILE: str = "./data_unstruct/data/Ransomware.csv"  # csv
