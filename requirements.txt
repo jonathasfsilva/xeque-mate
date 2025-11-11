@@ -8,9 +8,10 @@ pdfminer.six>=20231228
 Pillow>=10.3
 opencv-python>=4.8
 onnxruntime>=1.17
+unstructured[all-docs]
 
 # ==== Utilidades e parsers auxiliares (recomendado) ====
-python-magic-bin>=0.4.14; platform_system=="Windows"
+python-magic-bin
 filetype>=1.2
 beautifulsoup4>=4.12
 lxml>=5.2

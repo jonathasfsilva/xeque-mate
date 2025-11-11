@@ -105,7 +105,9 @@ def normalize_text(text: str) -> str:
     t = re.sub(r"[ \t\f\v]+", " ", t)
     # Limita quebras múltiplas
     t = re.sub(r"\n{3,}", "\n\n", t)
-    return t.strip()
+    normalized = t.strip()
+    print(f"[DEBUG] Texto normalizado: {normalized[:100]}")  # Mostra os primeiros 100 caracteres
+    return normalized
 
 
 # --- Classificação ---
@@ -133,7 +135,11 @@ def classify_category(cat: Optional[str]) -> str:
 # --- Segmentação (unstructured) ---
 def segment_file(path: Path) -> Tuple[List, Dict]:
     """Usa o unstructured para obter elementos e metadados do documento."""
-    elements = partition(filename=str(path))  # auto-detecta tipo
+    try:
+        elements = partition(filename=str(path))  # Certifique-se de que o caminho é local
+    except Exception as e:
+        raise RuntimeError(f"Erro ao processar o arquivo {path}: {e}")
+    
     doc_meta = {
         "doc_id": path.stem,
         "filename": path.name,
@@ -152,6 +158,7 @@ def element_text(el) -> str:
             txt = d.get("text") or ""
         except Exception:
             txt = str(el) or ""
+    print(f"[DEBUG] Texto extraído: {txt[:100]}")  # Mostra os primeiros 100 caracteres
     return txt
 
 
@@ -227,7 +234,7 @@ def iter_paths(root: Path):
         if root.suffix.lower() in VALID_SUFFIXES:
             yield root
         else:
-            print(f"[AVISO] Ignorando arquivo com extensão não suportada: {root.suffix} ({root})")
+            print(f"[AVISO] Ignorando arquivo com extensão não suportada")
         return
     for p in root.rglob("*"):
         if p.is_file() and p.suffix.lower() in VALID_SUFFIXES:
@@ -245,8 +252,11 @@ def run_pipeline(input_path: Path, output_path: Path, max_tokens: int, overlap: 
             total_docs += 1
             try:
                 elements, doc_meta = segment_file(file_path)
+                print(f"[DEBUG] {file_path.name}: {len(elements)} elementos extraídos.")
+                for el in elements:
+                    print(f"[DEBUG] Elemento: {el}")
             except Exception as e:
-                # print(f"[ERRO] {file_path}: {e}")
+                print(f"[ERRO] {file_path}: {e}")
                 continue
 
             if PREVIEW and elements:
@@ -268,7 +278,8 @@ def run_pipeline(input_path: Path, output_path: Path, max_tokens: int, overlap: 
         print(f"[ATENÇÃO] Nenhum arquivo encontrado. "
               f"Use uma PASTA ou aponte direto para o arquivo suportado.")
 
-    print(f"OK: {total_docs} documento(s) processado(s) → {total_chunks} chunk(s) em {output_path}")
+    print(f"OK - Processados {total_docs} documentos, "
+          f"gerados {total_chunks} chunks.")
 
 
 if __name__ == "__main__":
