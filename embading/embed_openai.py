@@ -21,8 +21,9 @@ print(f"PROJECT_ROOT: {PROJECT_ROOT}")
 # =========================
 # CONFIG: edite aqui
 # =========================
-INPUT_JSONL   = PROJECT_ROOT / "unstructured" / "data" / "unstruct-output" / "out.jsonl"  # JSONL vindo do unstructured_pipeline
-OUTPUT_JSONL  = PROJECT_ROOT / "embading" / "data" / "out_embedded.jsonl"  # saída com embeddings
+# INPUT_JSONL   = PROJECT_ROOT / "unstructured" / "data" / "unstruct-output" / "out.jsonl"  # JSONL vindo do unstructured_pipeline
+INPUT_JSONL   = PROJECT_ROOT / "data_unstruct" / "data" / "unstruct-output" / "Relatorio_Incidente_Ransomware_ACME_IR-2025-041__20251111-113246_txt.jsonl"  # JSONL vindo do unstructured_pipeline
+OUTPUT_JSONL  = PROJECT_ROOT / "embading" / "data" / "out_embedded_new.jsonl"  # saída com embeddings
 EMBED_MODEL   = "text-embedding-3-small"                  # alinhe com seu índice vetorial (Neo4j)
 BATCH_SIZE    = 64                                        # tamanho do lote p/ API
 MAX_TOKENS_IN = 8000                                      # corte de segurança por entrada

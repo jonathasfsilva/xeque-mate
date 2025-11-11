@@ -9,6 +9,7 @@ Pillow>=10.3
 opencv-python>=4.8
 onnxruntime>=1.17
 unstructured[all-docs]
+unstructured[openai]
 
 # ==== Utilidades e parsers auxiliares (recomendado) ====
 python-magic-bin

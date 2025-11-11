@@ -33,7 +33,7 @@ print(f"PROJECT_ROOT: {PROJECT_ROOT}")
 # =========================
 # CONFIG: edite aqui
 # =========================
-INPUT_JSONL     = PROJECT_ROOT / "embading" / "data" / "out_embedded.jsonl"  # saída do embed_openai.py
+INPUT_JSONL     = PROJECT_ROOT / "embading" / "data" / "out_embedded_new.jsonl"  # saída do embed_openai.py
 NEO4J_URI       = "neo4j+ssc://975d5047.databases.neo4j.io"
 NEO4J_USER      = "neo4j"
 NEO4J_PASSWORD  = "OuGdfpiDiOQ4qccf26hjDL5bVDduHUot-t18WNpB__0"
@@ -97,7 +97,6 @@ def ensure_vector_index(driver: Driver, dim: int):
             s.run(cypher).consume()
             log(f"[SCHEMA] índice vetorial '{VECTOR_INDEX}' ok (dim={dim}, sim={SIM_FUNCTION}).")
         except ClientError as e:
-            # se já existir com outra dimensão/config, apenas avisa
             log(f"[AVISO] não foi possível (re)criar '{VECTOR_INDEX}' — possivelmente já existe com outra dimensão. {e}")
 
 def upsert_batch(driver: Driver, rows: List[Dict]) -> int:
@@ -148,7 +147,7 @@ def main():
     total, upserts = 0, 0
 
     for rec in read_jsonl(in_path):
-        # mapeia o seu esquema
+        # novos campos do esquema: element_id, metadata.filename, etc.
         emb = rec.get("embedding")
         emb_model = rec.get("embedding_model")
 
@@ -157,22 +156,30 @@ def main():
             ensure_vector_index(driver, len(emb))
             vector_index_created = True
 
+        # mapeamento adaptado ao novo esquema
+        metadata = rec.get("metadata") or {}
+        element_id = rec.get("element_id")
+        rec_id = rec.get("id") or element_id or None
+
+        filename = metadata.get("filename") or metadata.get("file") or metadata.get("file_name") or None
+        # doc_id: prefira campo explícito, senão derive do filename (stem)
+        doc_id = rec.get("doc_id") or metadata.get("doc_id") or (Path(filename).stem if filename else None)
+
         row = {
-            "id": rec.get("id"),
-            "doc_id": rec.get("doc_id"),
+            "id": rec_id,
+            "doc_id": doc_id,
             "type": rec.get("type"),
             "types": rec.get("types") if isinstance(rec.get("types"), list)
                      else [rec.get("type")] if rec.get("type") else None,
             "text": rec.get("text"),
             "n_tokens": rec.get("n_tokens"),
-            # serialize metadata to JSON string because Neo4j properties must be primitives/arrays
-            "metadata": json.dumps(rec.get("metadata") or {}),
-            # preferimos filename da sua metadata como 'source'
-            "source": (rec.get("metadata") or {}).get("filename") or rec.get("source_path") or None,
+            "metadata": json.dumps(metadata or {}),
+            "source": filename,
             "embedding": emb if (isinstance(emb, list) and emb) else None,
             "embedding_model": emb_model,
         }
         if not row["id"] or not row["text"]:
+            # descarta entradas sem id (element_id) ou sem texto
             continue
 
         buffer.append(row)
