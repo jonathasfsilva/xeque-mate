@@ -65,3 +65,4 @@ urllib3==2.5.0
 webencodings==0.5.1
 wrapt==2.0.1
 zstandard==0.25.0
+neo4j==6.0.3
