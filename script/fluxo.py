@@ -1,10 +1,10 @@
-import sys
+import os
 from pathlib import Path
+import sys
+import json
 from unstructured.partition.auto import partition
 from unstructured.chunking import basic
 from unstructured.documents.elements import Element
-from unstructured.embed.openai import OpenAIEmbeddingEncoder as emb_openai
-import os
 from pydantic import SecretStr
 from unstructured.embed.openai import OpenAIEmbeddingEncoder, OpenAIEmbeddingConfig
 from dotenv import load_dotenv
@@ -38,11 +38,36 @@ config = OpenAIEmbeddingConfig(api_key=SecretStr(api_key), model_name="text-embe
 encoder = OpenAIEmbeddingEncoder(config=config)
 embeddings = encoder.embed_documents(elements=chunker)
 print(f"Number of embeddings created: {len(embeddings)}")
-print(embeddings)
 
 # salvar embeddings em disco formato JSONL
 output_path = PROJECT_ROOT / "data" / f"{Path(NAME_FILE).stem}_embeddings.jsonl"
 with output_path.open("w", encoding="utf-8") as f:
-    for emb in embeddings:
-        f.write(emb.to_json() + "\n")
+    for i, el in enumerate(embeddings):
+        # tenta encontrar o vetor de embedding em vários locais possíveis
+        emb_vector = None
+        if hasattr(el, "embedding"):
+            emb_vector = getattr(el, "embedding")
+        elif getattr(el, "metadata", None) and isinstance(el.metadata, dict):
+            emb_vector = el.metadata.get("embedding")
+
+        # tenta extrair texto do elemento
+        text = None
+        if hasattr(el, "get_text"):
+            try:
+                text = el.get_text()
+            except Exception:
+                text = None
+        if text is None:
+            text = getattr(el, "text", None)
+        if text is None:
+            # fallback
+            text = str(el)
+
+        record = {
+            "id": f"{Path(NAME_FILE).stem}_{i}",
+            "text": text,
+            "embedding": emb_vector,
+        }
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
 print(f"Embeddings saved to: {output_path}")
