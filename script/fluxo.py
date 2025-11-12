@@ -15,7 +15,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent  # sobe 1 nível (ajuste se precisar)
 
 # ========================= unstructured_pipeline.py =========================
-FILE_TO_PROCESS = PROJECT_ROOT / "data" / "Relatorio_Incidente_Ransomware_ACME_IR-2025-041.txt"
+NAME_FILE = "Relatorio_Incidente_Ransomware_ACME_IR-2025-041.txt"
+FILE_TO_PROCESS = PROJECT_ROOT / "data" / NAME_FILE
 
 print(f"Processing file: {FILE_TO_PROCESS}")
 
@@ -38,3 +39,10 @@ encoder = OpenAIEmbeddingEncoder(config=config)
 embeddings = encoder.embed_documents(elements=chunker)
 print(f"Number of embeddings created: {len(embeddings)}")
 print(embeddings)
+
+# salvar embeddings em disco formato JSONL
+output_path = PROJECT_ROOT / "data" / f"{Path(NAME_FILE).stem}_embeddings.jsonl"
+with output_path.open("w", encoding="utf-8") as f:
+    for emb in embeddings:
+        f.write(emb.to_json() + "\n")
+print(f"Embeddings saved to: {output_path}")
