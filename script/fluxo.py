@@ -4,11 +4,10 @@ import sys
 import json
 from unstructured.partition.auto import partition
 from unstructured.chunking import basic
-from unstructured.documents.elements import Element
 from pydantic import SecretStr
 from unstructured.embed.openai import OpenAIEmbeddingEncoder, OpenAIEmbeddingConfig
 from dotenv import load_dotenv
-from neo4j import GraphDatabase
+from neo4j_ingest import ingest_records
 
 load_dotenv()
 
@@ -113,58 +112,9 @@ with output_path.open("w", encoding="utf-8") as f:
 print(f"Embeddings saved to: {output_path}")
 
 # ========================= Neo4j ingest =========================
-# Usa variáveis de ambiente para não "acoplar" nada no código
-NEO4J_URI = os.environ.get("NEO4J_URI")
-NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD")
-NEO4J_DATABASE = os.environ.get("NEO4J_DATABASE", "neo4j")
+# moved to script/neo4j_ingest.py for clarity
+ingested = ingest_records(records, NAME_FILE, FILE_TO_PROCESS)
 
-if not (NEO4J_URI and NEO4J_USERNAME and NEO4J_PASSWORD):
-    print("NEO4J_* não configuradas; pulando ingestão no Neo4j.")
+if ingested == 0:
+    # ingest_records already logged reason
     sys.exit(0)
-
-driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
-
-def init_schema(session, dim: int | None):
-    session.run("CREATE CONSTRAINT document_id IF NOT EXISTS FOR (d:Document) REQUIRE d.id IS UNIQUE")
-    session.run("CREATE CONSTRAINT chunk_id IF NOT EXISTS FOR (c:Chunk) REQUIRE c.id IS UNIQUE")
-    if dim:
-        # Neo4j >= 5.11 – índice vetorial nativo
-        session.run("""
-            CREATE VECTOR INDEX chunk_embedding_index IF NOT EXISTS
-            FOR (c:Chunk) ON (c.embedding)
-            OPTIONS {indexConfig: {`vector.dimensions`: $dim, `vector.similarity_function`: 'cosine'}}
-        """, {"dim": dim})
-
-dim = len(records[0]["embedding"]) if records and records[0]["embedding"] else None
-
-with driver.session(database=NEO4J_DATABASE) as session:
-    init_schema(session, dim)
-    doc_id = stem
-    session.run(
-        "MERGE (d:Document {id: $id}) "
-        "SET d.name = $name, d.path = $path",
-        {"id": doc_id, "name": NAME_FILE, "path": str(FILE_TO_PROCESS)},
-    )
-
-    # upsert dos chunks + relacionamentos
-    for r in records:
-        session.run("""
-            MERGE (c:Chunk {id: $id})
-            SET c.text = $text,
-                c.embedding = $embedding,
-                c.idx = $idx
-            WITH c
-            MATCH (d:Document {id: $doc_id})
-            MERGE (d)-[:HAS_CHUNK]->(c)
-        """, {"id": r["id"], "text": r["text"], "embedding": r["embedding"], "idx": r["idx"], "doc_id": doc_id})
-
-        if r["idx"] > 0:
-            prev_id = f"{doc_id}_{r['idx']-1}"
-            session.run("""
-                MATCH (c1:Chunk {id: $prev}), (c2:Chunk {id: $curr})
-                MERGE (c1)-[:NEXT]->(c2)
-            """, {"prev": prev_id, "curr": r["id"]})
-
-driver.close()
-print(f"Ingested {len(records)} chunks to Neo4j.")
