@@ -52,7 +52,7 @@ def buscar_relatorios_de_inteligencia(pergunta: str) -> str:
 
 # 4. Atualizar a lista de ferramentas
 agent_tools = [
-    consultar_grafo_cti,
+    consultar_grafo_cti, buscar_relatorios_de_inteligencia
 ]
 
 # 5. Atualizar o PROMPT DO SISTEMA
