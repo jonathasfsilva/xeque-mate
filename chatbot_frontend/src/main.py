@@ -126,6 +126,38 @@ while not alert_queue.empty():
 # Force periodic reruns so the main loop drains the alert_queue regularly.
 if st_autorefresh is not None:
     st_autorefresh(interval=2500, key="alerts_autorefresh")
+else:
+    # Fallback: perform an automatic short-poll fetch on the main thread every few seconds
+    interval_seconds = 3.0
+    now = time.time()
+    if "last_auto_check" not in st.session_state:
+        st.session_state.last_auto_check = 0
+    if now - st.session_state.last_auto_check > interval_seconds:
+        st.session_state.last_auto_check = now
+        try:
+            resp = requests.get(f"{CHATBOT_URL}/alerts/recent?limit=50", timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                alerts = data.get("alerts", [])
+                # add new alerts oldest->newest
+                for a in reversed(alerts):
+                    ts = a.get("timestamp")
+                    if not ts:
+                        key = (a.get("title"), a.get("message"))
+                        ts = json.dumps(key)
+                    if ts not in st.session_state.processed_alert_ts:
+                        st.session_state.processed_alert_ts.add(ts)
+                        severity = a.get("severity", "info").upper()
+                        title = a.get("title", "Alerta")
+                        message = a.get("message", "")
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "output": f"🔔 **[{severity}]** {title}: {message}",
+                            "is_alert": True,
+                            "timestamp": ts,
+                        })
+        except Exception:
+            pass
 
 # Also open a small browser-side WebSocket component to receive immediate alerts
 # and post them to Streamlit via postMessage. This ensures alerts appear
