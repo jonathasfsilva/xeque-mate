@@ -78,8 +78,16 @@ async def send_alert(alert_data: dict):
         "severity": alert_data.get("severity", "info"),  # info, warning, error, success
         "timestamp": alert_data.get("timestamp", ""),
     }
-    
+    # store in recent buffer and broadcast
+    manager.add_alert(alert_message)
     await manager.broadcast(alert_message)
     logger.info(f"Alerta disparado: {alert_message}")
     
     return {"status": "Alert sent to all connected clients", "alert": alert_message}
+
+
+@app.get("/alerts/recent")
+async def get_recent_alerts(limit: int = 20, since: str | None = None):
+    """Return recent alerts for polling clients."""
+    alerts = manager.get_recent_alerts(limit=limit, since=since)
+    return {"alerts": alerts}
