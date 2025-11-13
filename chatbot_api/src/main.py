@@ -1,12 +1,29 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from src.agents.rag_agent import rag_agent_executor
 from src.models.rag_query import QueryInput, QueryOutput
 from src.utils.async_utils import async_retry
+from src.utils.websocket_manager import ConnectionManager
+import logging
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Ransomware Chatbot",
     description="Endpoints for a system graph RAG chatbot",
 )
+
+# Configurar CORS para permitir conexões do frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Gerenciador de conexões WebSocket
+manager = ConnectionManager()
 
 
 @async_retry(max_retries=10, delay=1)
@@ -32,3 +49,37 @@ async def ask_hospital_agent(query: QueryInput) -> QueryOutput:
     ]
 
     return query_response
+
+
+@app.websocket("/ws/alerts")
+async def websocket_alerts(websocket: WebSocket):
+    """Conecta um cliente ao stream de alertas em tempo real."""
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Mantém a conexão aberta e aguarda mensagens
+            data = await websocket.receive_text()
+            logger.info(f"Mensagem recebida: {data}")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        logger.info("Client desconectado do WebSocket")
+    except Exception as e:
+        logger.error(f"Erro no WebSocket: {e}")
+        manager.disconnect(websocket)
+
+
+@app.post("/alert")
+async def send_alert(alert_data: dict):
+    """Dispara um alerta para todos os clientes conectados."""
+    alert_message = {
+        "type": "alert",
+        "title": alert_data.get("title", "Novo Alerta"),
+        "message": alert_data.get("message", ""),
+        "severity": alert_data.get("severity", "info"),  # info, warning, error, success
+        "timestamp": alert_data.get("timestamp", ""),
+    }
+    
+    await manager.broadcast(alert_message)
+    logger.info(f"Alerta disparado: {alert_message}")
+    
+    return {"status": "Alert sent to all connected clients", "alert": alert_message}

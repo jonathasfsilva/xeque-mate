@@ -13,7 +13,8 @@ dependencies = [
     "openai>=1.6.1,<2.0.0", # Downgrade para uma versão compatível
     "opentelemetry-api==1.22.0",
     "pydantic==2.5.1",
-    "uvicorn==0.25.0"
+    "uvicorn==0.25.0",
+    "websockets>=12.0"
 ]
 
 [project.optional-dependencies]

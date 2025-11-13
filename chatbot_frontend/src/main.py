@@ -1,38 +1,60 @@
 import os
 import requests
 import streamlit as st
+import json
+from datetime import datetime
 
 # 1. ATUALIZADO: O endpoint da sua nova API
 CHATBOT_URL = os.getenv("CHATBOT_URL")
 
-with st.sidebar:
-    st.header("Sobre")
-    # 2. ATUALIZADO: Descrição do novo chatbot
-    st.markdown(
-        """
-        Este chatbot interage com um agente
-        [LangChain](https://python.langchain.com/docs/get_started/introduction)
-        projetado para responder a perguntas sobre Cyber Threat Intelligence (CTI)
-        com foco em ransomware.
-        
-        Ele responde a perguntas sobre **atores de ameaça** (grupos),
-        **famílias de ransomware**, **vítimas**, **setores da indústria** e **carteiras**
-        de pagamento. O agente utiliza geração de recuperação e ampliação (RAG)
-        sobre um grafo de conhecimento estruturado.
-        """
-    )
+# We'll use a small browser-side WebSocket (embedded HTML/JS)
+from streamlit.components.v1 import html as st_html
 
-    st.header("Exemplos de perguntas")
-    # 3. ATUALIZADO: Novos exemplos de perguntas para CTI
-    st.markdown("- Quais ransomware o grupo Wizard Spider opera?")
-    st.markdown("- Qual a motivação do Lazarus Group?")
-    st.markdown("- Quantas vítimas o ransomware Conti atacou no total?")
-    st.markdown("- Quais setores (indústrias) o ransomware LockBit atacou?")
-    st.markdown("- Qual grupo opera o ransomware Ryuk?")
-    st.markdown("- Liste todas as vítimas no setor de 'Energia'.")
-    st.markdown("- Qual a família do ransomware 'DarkSide'?")
-    st.markdown("- Quais grupos têm motivação 'Financial' (Financeira)?")
-    st.markdown("- Quais carteiras o ransomware Conti usa para pedir resgate?")
+
+with st.sidebar:
+        st.header("Status de Alertas")
+
+        # Browser-side WebSocket widget (connects from the user's browser to the API)
+        html_code = """
+        <div id="alert-box" style="font-family: sans-serif; padding:8px; border-radius:6px; border:1px solid #ddd;">
+            <b>Status:</b> <span id="status">Conectando...</span>
+            <div id="alerts" style="margin-top:8px; max-height:220px; overflow:auto;"></div>
+        </div>
+        <script>
+        (function() {{
+                        // Determine a safe host: try window.location, then parent frame, then fallback to localhost
+                        var host = window.location.hostname || (window.parent && window.parent.location && window.parent.location.hostname) || 'localhost';
+                        var proto = (window.parent && window.parent.location && window.parent.location.protocol) || window.location.protocol || 'http:';
+                        const wsProto = proto === 'https:' ? 'wss' : 'ws';
+                        const wsUrl = wsProto + '://' + host + ':8000/ws/alerts';
+                        console.debug('[alerts widget] connecting to', wsUrl);
+                        var socket = null;
+                        try {
+                            socket = new WebSocket(wsUrl);
+                        } catch (e) {
+                            console.error('[alerts widget] websocket construction error', e);
+                            document.getElementById('status').textContent = 'Erro na construção do WebSocket';
+                        }
+            const status = document.getElementById('status');
+            const alertsDiv = document.getElementById('alerts');
+            socket.onopen = function() {{ status.textContent = 'Conectado'; }};
+            socket.onmessage = function(event) {{
+                try {{
+                    const data = JSON.parse(event.data);
+                    const el = document.createElement('div');
+                    el.style.padding = '6px';
+                    el.style.borderTop = '1px solid #eee';
+                    el.innerHTML = '<b>' + (data.title||'Alerta') + '</b><div>' + (data.message||'') + '</div>';
+                    alertsDiv.prepend(el);
+                }} catch(e) {{ console.error(e); }}
+            }};
+            socket.onclose = function() {{ status.textContent = 'Desconectado'; }};
+            socket.onerror = function() {{ status.textContent = 'Erro'; }};
+        }})();
+        </script>
+        """
+
+        st_html(html_code, height=220)
 
 
 # 4. ATUALIZADO: Título
@@ -45,7 +67,40 @@ st.info(
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+if "last_alert" not in st.session_state:
+    st.session_state.last_alert = None
+
+# Exibir alerta mais recente na tela principal
+if st.session_state.last_alert:
+    alert = st.session_state.last_alert
+    severity = alert.get("severity", "info")
+    title = alert.get("title", "Alerta")
+    message = alert.get("message", "")
+    
+    if severity == "error":
+        st.error(f"🚨 **{title}**\n{message}")
+    elif severity == "warning":
+        st.warning(f"⚠️ **{title}**\n{message}")
+    elif severity == "success":
+        st.success(f"✅ **{title}**\n{message}")
+    else:
+        st.info(f"ℹ️ **{title}**\n{message}")
+    
+    # Adicionar alerta ao histórico de chat se ainda não foi adicionado
+    if not any(msg.get("is_alert") for msg in st.session_state.messages if msg.get("title") == title):
+        st.session_state.messages.append({
+            "role": "system",
+            "output": f"**[{severity.upper()}]** {title}: {message}",
+            "is_alert": True,
+            "title": title
+        })
+
+
 for message in st.session_state.messages:
+    # Pular mensagens de alerta no loop de exibição (já foram mostradas acima)
+    if message.get("is_alert"):
+        continue
+        
     with st.chat_message(message["role"]):
         if "output" in message.keys():
             st.markdown(message["output"])
@@ -62,7 +117,7 @@ if prompt := st.chat_input("O que você quer saber?"):
     data = {"text": prompt}
 
     with st.spinner("Analisando o grafo de ameaças..."):
-        response = requests.post(CHATBOT_URL, json=data)
+        response = requests.post(f"{CHATBOT_URL}/rag-agent", json=data)
 
         if response.status_code == 200:
             output_text = response.json()["output"]
