@@ -15,8 +15,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent  # sobe 1 nível (ajuste se precisar)
 
 # ========================= unstructured_pipeline.py =========================
-NAME_FILE = "Relatorio_Incidente_Ransomware_ACME_IR-2025-041.txt"
-FILE_TO_PROCESS = PROJECT_ROOT / "data" / NAME_FILE
+NAME_FILE = "NIST.SP.800-61r3.pdf"
+FILE_TO_PROCESS = PROJECT_ROOT / "coletor_data" / "data" / "external" / "acao_recomendada" / NAME_FILE
 
 print(f"Processing file: {FILE_TO_PROCESS}")
 
