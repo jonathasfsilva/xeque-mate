@@ -40,6 +40,31 @@ def send_alert(title: str, message: str, severity: str = "info"):
         print(f"❌ Erro: {e}")
 
 if __name__ == "__main__":
+
+    print("\n4. Enviando alerta de sucesso...")
+    # Teste 4: Alerta de sucesso
+    send_alert(
+        "Análise Concluída",
+        "Análise de X amostras completada com sucesso",
+        "success"
+    )
+
+    print("\n3. Enviando alerta de erro...")
+    # Teste 3: Alerta de erro
+    send_alert(
+        "Falha Crítica",
+        "Falha na conexão com a intranet da empresa",
+        "error"
+    )
+
+    print("\n2. Enviando alerta de aviso...")
+    # Teste 2: Alerta de aviso
+    send_alert(
+        "Atividade Suspeita",
+        "Spike de tráfego de ransomware LockBit detectado",
+        "warning"
+    )
+
     print("=== Teste de Sistema de Alertas ===\n")
     
     # Teste 1: Alerta de informação
@@ -48,30 +73,6 @@ if __name__ == "__main__":
         "Nova Ameaça Detectada",
         "Um novo ator de ameaça foi identificado: Grupo XYZ",
         "info"
-    )
-    
-    print("\n2. Enviando alerta de aviso...")
-    # Teste 2: Alerta de aviso
-    send_alert(
-        "Atividade Suspeita",
-        "Spike de tráfego de ransomware LockBit detectado",
-        "warning"
-    )
-    
-    print("\n3. Enviando alerta de erro...")
-    # Teste 3: Alerta de erro
-    send_alert(
-        "Falha Crítica",
-        "Falha na conexão com o grafo de conhecimento",
-        "error"
-    )
-    
-    print("\n4. Enviando alerta de sucesso...")
-    # Teste 4: Alerta de sucesso
-    send_alert(
-        "Análise Concluída",
-        "Análise de 1000 amostras completada com sucesso",
-        "success"
     )
     
     print("\n✨ Testes concluídos!")
