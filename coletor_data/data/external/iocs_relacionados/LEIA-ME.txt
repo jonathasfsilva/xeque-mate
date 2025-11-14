@@ -1,0 +1,5 @@
+Ferramentas de IOC utilizadas pelo Xeque-Mate:
+
+- MISP: https://www.misp-project.org/
+- OTX:  https://otx.alienvault.com/
+- VT:   https://www.virustotal.com/
