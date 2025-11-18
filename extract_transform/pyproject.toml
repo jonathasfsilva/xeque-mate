@@ -1,0 +1,13 @@
+[project]
+name = "hospital_neo4j_etl"
+version = "0.1"
+dependencies = [
+   "unstructured",
+   "typing",
+   "pathlib",
+   "neo4j==5.14.1",
+   "dotenv"
+]
+
+[project.optional-dependencies]
+dev = ["black", "flake8"]

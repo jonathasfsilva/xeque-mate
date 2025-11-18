@@ -5,7 +5,6 @@ from typing import Optional, Sequence
 from unstructured.partition.auto import partition
 from unstructured.chunking import basic
 from dotenv import load_dotenv
-from neo4j_ingest import ingest_records
 
 load_dotenv()
 
