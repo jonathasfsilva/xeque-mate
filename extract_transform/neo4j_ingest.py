@@ -79,3 +79,63 @@ def ingest_records(records: List[Dict], name_file: str, file_path: Path) -> int:
     driver.close()
     print(f"Ingested {len(records)} chunks to Neo4j.")
     return len(records)
+
+def ingest_incident_jsonl(jsonl_path: Path):
+    import json
+
+    cfg = _get_env()
+    driver = GraphDatabase.driver(cfg["uri"], auth=(cfg["username"], cfg["password"]))
+
+    with driver.session(database=cfg["database"]) as session:
+        session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (i:Incident) REQUIRE i.id IS UNIQUE;")
+        session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (r:Response) REQUIRE r.id IS UNIQUE;")
+        session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (c:CSF) REQUIRE c.id IS UNIQUE;")
+
+        with open(jsonl_path, "r", encoding="utf-8") as f:
+            for line in f:
+                data = json.loads(line)
+
+                incidente = data["incidente"]
+                respostas = data["respostas_incidente"]
+
+                # Criar nó incidente
+                session.run("""
+                    MERGE (i:Incident {id: $id})
+                    SET i.nist_id = $nist_id,
+                        i.titulo = $titulo,
+                        i.descricao = $desc,
+                        i.severidade = $sev,
+                        i.data_detectado = $data
+                """, {
+                    "id": incidente["id_incidente"],
+                    "nist_id": incidente.get("id_incidente_nist"),
+                    "titulo": incidente.get("titulo"),
+                    "desc": incidente.get("descricao_curta"),
+                    "sev": incidente.get("severidade"),
+                    "data": incidente.get("data_detectado")
+                })
+
+                # Criar respostas
+                for resp in respostas:
+                    session.run("""
+                        MERGE (r:Response {id: $id})
+                        SET r.descricao = $desc
+                        WITH r
+                        MATCH (i:Incident {id: $incident_id})
+                        MERGE (i)-[:HAS_RESPONSE]->(r)
+                    """, {
+                        "id": resp["id_resposta_incidente"],
+                        "desc": resp["descricao"],
+                        "incident_id": incidente["id_incidente"]
+                    })
+
+                    # Relacionar CSFs
+                    for csf_id in resp["csf_ids"]:
+                        session.run("""
+                            MERGE (c:CSF {id: $csf})
+                            WITH c
+                            MATCH (r:Response {id: $resp})
+                            MERGE (r)-[:MAPS_TO_CSF]->(c)
+                        """, {"csf": csf_id, "resp": resp["id_resposta_incidente"]})
+
+    driver.close()
