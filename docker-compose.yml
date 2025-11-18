@@ -24,11 +24,3 @@ services:
       - chatbot_api
     ports:
       - "8501:8501"
-
-  extract_transform_data:
-    build:
-      context: ./extract_transform
-    env_file:
-      - .env
-    volumes:
-      - ./coletor_data:/coletor_data

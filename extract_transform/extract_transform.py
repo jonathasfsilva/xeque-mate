@@ -87,12 +87,3 @@ def process_directory(
             print(f"  Wrote: {out_file}")
         except Exception as e:
             print(f"  ERROR writing {out_file}: {e}")
-
-
-if __name__ == "__main__":
-    sample_input = Path("/coletor_data/data/external")
-    sample_output = Path("/coletor_data/data/chunks_jsonl")
-    print(f"Input dir: {sample_input}")
-    print(f"Output dir: {sample_output}")
-    print(f"Exists input dir? {sample_input.exists()}")
-    process_directory(sample_input, sample_output, recursive=True, overwrite=False)
