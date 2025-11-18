@@ -4,21 +4,11 @@ import json
 from typing import Optional, Sequence
 from unstructured.partition.auto import partition
 from unstructured.chunking import basic
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
-load_dotenv()
-
-SCRIPT_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = SCRIPT_DIR.parent  # sobe 1 nível (ajuste se precisar)
-
-# ...existing code...
-NAME_FILE = "NIST.SP.800-61r3.pdf"
-FILE_TO_PROCESS = PROJECT_ROOT / "coletor_data" / "data" / "external" / "acao_recomendada" / NAME_FILE
-
-print(f"Processing PROJECT_ROOT: {PROJECT_ROOT}")
+#load_dotenv()
 
 # --- Particionamento ---
-
 
 def process_directory(
     input_dir: str | Path,
@@ -99,10 +89,10 @@ def process_directory(
             print(f"  ERROR writing {out_file}: {e}")
 
 
-# Exemplo de uso
 if __name__ == "__main__":
-    # Ajuste os diretórios conforme necessário
-    sample_input = PROJECT_ROOT / "coletor_data" / "data" / "external"
-    sample_output = PROJECT_ROOT / "coletor_data" / "data" / "chunks_jsonl"
+    sample_input = Path("/coletor_data/data/external")
+    sample_output = Path("/coletor_data/data/chunks_jsonl")
+    print(f"Input dir: {sample_input}")
+    print(f"Output dir: {sample_output}")
+    print(f"Exists input dir? {sample_input.exists()}")
     process_directory(sample_input, sample_output, recursive=True, overwrite=False)
-# ...existing code...

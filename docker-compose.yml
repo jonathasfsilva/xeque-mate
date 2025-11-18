@@ -30,3 +30,5 @@ services:
       context: ./extract_transform
     env_file:
       - .env
+    volumes:
+      - ./coletor_data:/coletor_data
