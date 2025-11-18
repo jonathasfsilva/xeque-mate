@@ -21,15 +21,24 @@ def process_directory(
     Percorre input_dir, gera chunks e grava um .jsonl por arquivo.
     Remove chaves 'element_id' (recursivamente) antes de gravar.
     """
-    def remove_keys_recursive(obj: object, keys: set[str]) -> object:
+    def remove_keys_recursive(obj: object, keys: set[str], metadata_keys: set[str] = None) -> object:
         if isinstance(obj, dict):
-            return {
-                k: remove_keys_recursive(v, keys)
+            # Remove chaves gerais
+            new_obj = {
+                k: remove_keys_recursive(v, keys, metadata_keys)
                 for k, v in obj.items()
                 if k not in keys
             }
+            # Se for metadata, remove campos específicos
+            if "metadata" in new_obj and isinstance(new_obj["metadata"], dict) and metadata_keys:
+                new_obj["metadata"] = {
+                    mk: mv
+                    for mk, mv in new_obj["metadata"].items()
+                    if mk not in metadata_keys
+                }
+            return new_obj
         if isinstance(obj, list):
-            return [remove_keys_recursive(item, keys) for item in obj]
+            return [remove_keys_recursive(item, keys, metadata_keys) for item in obj]
         return obj
 
     input_path = Path(input_dir)
@@ -81,7 +90,11 @@ def process_directory(
                             obj = {"text": getattr(chunk, "text", str(chunk)), "metadata": getattr(chunk, "metadata", {})}
 
                     # Remove element_id (e qualquer outra chave) recursivamente
-                    obj = remove_keys_recursive(obj, {"element_id"})
+                    obj = remove_keys_recursive(
+                        obj,
+                        {"element_id"},
+                        {"orig_elements", "last_modified", "languages", "file_directory"}
+                    )
                     print("obj keys:", obj.keys())
                     fh.write(json.dumps(obj, ensure_ascii=False) + "\n")
             print(f"  Wrote: {out_file}")
