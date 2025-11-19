@@ -1,7 +1,7 @@
 services:
   neo4j_etl:
     build:
-      context: /noe4j_etl
+      context: /neo4j_etl
     env_file:
       - .env
 
