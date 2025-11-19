@@ -11,8 +11,8 @@ load_dotenv()
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 
-sample_input = PROJECT_ROOT / "coletor_data" / "data" / "external"
-# sample_input = PROJECT_ROOT / "coletor_data" /"data" / "incidents"
+# sample_input = PROJECT_ROOT / "coletor_data" / "data" / "external"
+sample_input = PROJECT_ROOT / "coletor_data" /"script" / "mitre_html" / "tactics"
 sample_output = PROJECT_ROOT / "coletor_data" / "data" / "chunks_jsonl"
 
 print(f"Input dir: {sample_input}")
