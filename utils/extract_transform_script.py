@@ -90,13 +90,6 @@ def process_directory(
                         except Exception:
                             obj = {"text": getattr(chunk, "text", str(chunk)), "metadata": getattr(chunk, "metadata", {})}
 
-                    # Remove element_id (e qualquer outra chave) recursivamente
-                    obj = remove_keys_recursive(
-                        obj,
-                        {"element_id"},
-                        {"orig_elements", "last_modified", "languages", "file_directory"}
-                    )
-                    print("obj keys:", obj.keys())
                     fh.write(json.dumps(obj, ensure_ascii=False) + "\n")
             print(f"  Wrote: {out_file}")
         except Exception as e:
