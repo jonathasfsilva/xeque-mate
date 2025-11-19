@@ -104,11 +104,6 @@ def extract_subtechniques(tech_url):
 
     return subtechs
 
-
-# ------------------------------
-#  FUNÇÃO PRINCIPAL REUTILIZÁVEL
-# ------------------------------
-
 def run_mitre_collector(output_dir: str | Path, limit: int | None = None):
     """
     Executa o coletor MITRE ATT&CK completo.

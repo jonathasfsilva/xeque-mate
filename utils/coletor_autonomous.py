@@ -212,10 +212,6 @@ def collect_for_resumo_evento_rag(dir_path: Path):
         nist_download_pdf_from_detail(detail, dir_path)
 
 
-# =====================================================================
-#  FUNÇÃO PRINCIPAL (MODULAR)
-# =====================================================================
-
 def run_autonomous_collector(base_output_dir: str | Path):
     """
     Executa TODO o coletor autônomo de fontes técnicas do Xeque-Mate.
@@ -248,11 +244,3 @@ def run_autonomous_collector(base_output_dir: str | Path):
         func(field_dir)
 
     print("\n[OK] Coleta completa!\n")
-
-
-# =====================================================================
-# Modo CLI opcional
-# =====================================================================
-
-if __name__ == "__main__":
-    run_autonomous_collector("data/external")

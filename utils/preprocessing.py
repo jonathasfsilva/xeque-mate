@@ -82,11 +82,6 @@ def process_jsonl_file(path: str, output_dir: Path):
 
     print(f"[✔] Processado: {path} → {out_path}")
 
-
-# ------------------------------
-#   FUNÇÃO PRINCIPAL (REUTILIZÁVEL)
-# ------------------------------
-
 def preprocess_jsonl(raw_dir: str | Path, processed_dir: str | Path):
     """
     Processa todos os JSONL presentes em `raw_dir`

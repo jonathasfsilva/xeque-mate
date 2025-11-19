@@ -117,10 +117,6 @@ def process_jsonl_file(driver, path):
     logger.info(f"Documento(s) inserido(s) do arquivo {path}")
 
 
-# ----------------------------------------------------------
-#   FUNÇÃO REUTILIZÁVEL (IMPORTANTE)
-# ----------------------------------------------------------
-
 def load_jsonl_to_neo4j(jsonl_folder: str | Path):
     """
     Função modular que carrega todos os JSONL da pasta para o Neo4j.
