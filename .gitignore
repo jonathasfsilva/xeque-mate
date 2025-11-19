@@ -42,4 +42,4 @@ Thumbs.db
 unstruct-output/
 
 # *.jsonl
-*.html
+# *.html

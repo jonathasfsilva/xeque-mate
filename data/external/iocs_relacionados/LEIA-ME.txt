@@ -1,0 +1,4 @@
+Ferramentas IOC:
+- MISP
+- OTX
+- VirusTotal

@@ -5,6 +5,7 @@ from pathlib import Path
 from utils.extract_transform_script import process_directory
 from utils.coletor_html_mitre import run_mitre_collector
 from utils.preprocessing import preprocess_jsonl
+from utils.coletor_autonomous import run_autonomous_collector
 
 from utils.neo4j_loader import load_jsonl_to_neo4j
 from dotenv import load_dotenv
@@ -24,6 +25,10 @@ print("Iniciando coleta de dados do MITRE ATT&CK...")
 # Primeiro passo fazer o coletor dos dados, por enquanto vamos fazer no MITRE ATT&CK usando o script dedicado.
 run_mitre_collector(output_dir=OUTPUT_DIR_COLETOR, limit=10)
 
+# Executando o coletor autônomo de fontes técnicas
+# print("Iniciando coleta de dados do coletor autônomo...")
+# run_autonomous_collector(base_output_dir=PROJECT_ROOT / "data" / "external")
+
 
 # Saída dos dados processados pelo unstructured
 OUTPUT_DIR_UNSTRUCTURED = PROJECT_ROOT / "data" / "unstructured_chunks_jsonl"
@@ -31,7 +36,7 @@ OUTPUT_DIR_UNSTRUCTURED.mkdir(parents=True, exist_ok=True)
 
 print("================== Processamento com unstructured =================")
 #  Segundo passo, processar esses dados coletados e chamar o unstructured para gerar os chunks.
-# process_directory(input_dir=OUTPUT_DIR_COLETOR, output_dir=OUTPUT_DIR_UNSTRUCTURED, recursive=True, overwrite=False)
+process_directory(input_dir=OUTPUT_DIR_COLETOR, output_dir=OUTPUT_DIR_UNSTRUCTURED, recursive=True, overwrite=False)
 
 # Saída dos dados pré-processados
 OUTPUT_DIR_PREPROCESSED = PROJECT_ROOT / "data" / "preprocessed_jsonl"
