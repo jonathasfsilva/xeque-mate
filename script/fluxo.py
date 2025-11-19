@@ -7,7 +7,7 @@ from unstructured.chunking import basic
 from pydantic import SecretStr
 from unstructured.embed.openai import OpenAIEmbeddingEncoder, OpenAIEmbeddingConfig
 from dotenv import load_dotenv
-from script.src.neo4j_ingest import ingest_records
+from extract_transform.neo4j_ingest import ingest_records
 
 load_dotenv()
 

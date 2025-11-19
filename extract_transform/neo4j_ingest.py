@@ -139,3 +139,4 @@ def ingest_incident_jsonl(jsonl_path: Path):
                         """, {"csf": csf_id, "resp": resp["id_resposta_incidente"]})
 
     driver.close()
+    print(f"Dados de {str(jsonl_path).split('/')[-1]} ingeridos no Neo4j com sucesso.")
