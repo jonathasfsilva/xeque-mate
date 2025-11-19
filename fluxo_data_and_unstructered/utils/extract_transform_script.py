@@ -1,4 +1,3 @@
-# ...existing code...
 from pathlib import Path
 import json
 from typing import Optional, Sequence
@@ -44,14 +43,16 @@ def process_directory(
     input_path = Path(input_dir)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-
-    default_suffixes = {".pdf", ".docx", ".txt", ".md", ".html", ".htm", ".pptx"}
+    print(f"iniciando fluxo - input: {input_path}, output: {output_path}")
+    default_suffixes = {".pdf", ".docx", ".txt", ".md", ".html", ".htm", ".pptx", ".jsonl", ".log", ".json"}
     allowed = {s.lower() for s in (suffixes or default_suffixes)}
 
     if recursive:
         files = input_path.rglob("*")
     else:
         files = input_path.glob("*")
+        
+    print(f"files to process: {files}")
 
     for file_path in files:
         if not file_path.is_file():
