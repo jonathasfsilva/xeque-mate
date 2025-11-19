@@ -41,4 +41,4 @@ Thumbs.db
 
 unstruct-output/
 
-*.jsonl
+# *.jsonl
